@@ -398,3 +398,5 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+/.idea/.idea.IPK_2_Server.dir/.idea/.gitignore
+/.idea/.idea.IPK_2_Server.dir/.idea/encodings.xml
