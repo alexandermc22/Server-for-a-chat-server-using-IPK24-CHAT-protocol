@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Resources;
 using System.Threading.Tasks;
 using Server.ClientInfo;
 using System.Text;
@@ -102,13 +103,14 @@ public class TcpServer
                     {
                         words = receivedMessage.Split(' ');
                     }
-                    
+                    Console.WriteLine($"RECV {clientInfo.ClientIpAddress}:{clientInfo.ClientPort} | {words[0]}");
                     switch (clientInfo.State)
                     {
                         case ClientState.Auth:
                             int result = await HandleAuthClient(stream, clientInfo, words);
                             break;
                         case ClientState.Open:
+                             result = await HandleOpenClient(stream, clientInfo, words);
                             break;
                         case ClientState.Error:
                             break;
@@ -123,7 +125,7 @@ public class TcpServer
             }
             
             Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
-            SendMessageToChannel(msg,clientInfo,true);
+            SendMessageToChannel(msg,clientInfo,false);
             Console.WriteLine($"{clientInfo.DisplayName} has left {clientInfo.Channel}");
             client.Close();
         }
@@ -144,23 +146,40 @@ public class TcpServer
             switch (words[0])
             {
                 case "JOIN":
+                    Join join = new Join(words);
+                    Msg msgLeft = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
+                    SendMessageToChannel(msgLeft,clientInfo,true);
                     
+                    clientInfo.DisplayName = join.DisplayName;
+                    clientInfo.Channel = join.ChannelId;
+                    
+                    Reply replyOk = new Reply("You're join to channel", true);
+                    await SendMessageToUser(replyOk.ToTcpString(), stream, clientInfo);
+                    
+                    Msg msgJoin = new Msg("Server", $"{clientInfo.DisplayName} has join {clientInfo.Channel}");
+                    SendMessageToChannel(msgJoin,clientInfo,true);
                     break;
                 
                 case "MSG":
-                    
+                    Msg msg = new Msg(words);
+                    SendMessageToChannel(msg,clientInfo,false);
                     break;
                 
                 case "ERR":
-                    
+                    Err err = new Err(words);
+                    Console.Error.WriteLine($"ERROR FROM {err.DisplayName}: {err.MessageContents}");
+                    SendMessageToUser("BYE\r\n", stream, clientInfo);
+                    clientInfo.State = ClientState.End;
                     break;
                 
                 case "BYE":
-                    
+                    clientInfo.State = ClientState.End;
                     break;
                 
                 default:
-                    //TODO: send err send bye
+                    err = new Err("Server", "Unknown message");
+                    SendMessageToUser("BYE\r\n", stream, clientInfo);
+                    clientInfo.State = ClientState.End;
                     break;
             }
         }
@@ -187,7 +206,7 @@ public class TcpServer
                 {
                     if (auth.Username == client.Username)
                     {
-                        Reply replyNo = new Reply("Error: You are already logged in", false);
+                        Reply replyNo = new Reply("You are already logged in", false);
                         await SendMessageToUser(replyNo.ToTcpString(), stream, clientInfo);
                         return 0;
                     }
