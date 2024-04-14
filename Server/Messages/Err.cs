@@ -55,4 +55,29 @@ public class Err: IMessage
         DisplayName = displayName;
         MessageContents = messageContents;
     }
+    public byte[] ToBytes(ushort id)
+    {
+        byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
+        byte[] messageContentsBytes = Encoding.UTF8.GetBytes(MessageContents);
+
+        // Create an array to combine all bytes
+        byte[] result = new byte[1 + 2 + displayNameBytes.Length + 1 + messageContentsBytes.Length + 1];
+
+        result[0] = (byte)MessageType;
+
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
+        Array.Copy(messageIdBytes, 0, result, 1, 2);
+
+        int offset = 3;
+
+        Array.Copy(displayNameBytes, 0, result, offset, displayNameBytes.Length);
+        offset += displayNameBytes.Length;
+        result[offset++] = 0; // Null terminator after DisplayName
+
+        Array.Copy(messageContentsBytes, 0, result, offset, messageContentsBytes.Length);
+        offset += messageContentsBytes.Length;
+        result[offset] = 0; // Null terminator after MessageContents
+
+        return result;
+    }
 }

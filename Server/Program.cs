@@ -30,12 +30,12 @@ public class Server
                 try
                 {
                     TcpServer tcpServer = new TcpServer(ProgramOptions.Ip, ProgramOptions.Port);
-                    UdpServer udpServer = new UdpServer(ProgramOptions.Ip, ProgramOptions.Port);
+                    UdpServer udpServer = new UdpServer(ProgramOptions.Ip, ProgramOptions.Port,ProgramOptions.MaxRetries,ProgramOptions.UdpTimeout);
                 
-                    Task tcpTask = Task.Run(async () => await tcpServer.Start(udpServer));
-                    //Task udpTask = Task.Run(async () => await udpServer.Start(tcpServer));
+                    Task tcpTask = Task.Run(async () => await tcpServer.Start(udpServer)); 
+                    Task udpTask = Task.Run(async () => await udpServer.Start(tcpServer));
                 
-                    await Task.WhenAny(tcpTask);
+                    await Task.WhenAny(tcpTask,udpTask);
 
                 }
                 catch (Exception e)

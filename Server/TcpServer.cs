@@ -126,6 +126,8 @@ public class TcpServer
             
             Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
             SendMessageToChannel(msg,clientInfo,false);
+            _udpServer.SendMessageToChannel(msg,clientInfo,false);
+            
             Console.WriteLine($"{clientInfo.DisplayName} has left {clientInfo.Channel}");
             client.Close();
         }
@@ -148,7 +150,8 @@ public class TcpServer
                 case "JOIN":
                     Join join = new Join(words);
                     Msg msgLeft = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
-                    SendMessageToChannel(msgLeft,clientInfo,true);
+                    SendMessageToChannel(msgLeft,clientInfo,false);
+                    _udpServer.SendMessageToChannel(msgLeft,clientInfo,false);
                     
                     clientInfo.DisplayName = join.DisplayName;
                     clientInfo.Channel = join.ChannelId;
@@ -157,12 +160,14 @@ public class TcpServer
                     await SendMessageToUser(replyOk.ToTcpString(), stream, clientInfo);
                     
                     Msg msgJoin = new Msg("Server", $"{clientInfo.DisplayName} has join {clientInfo.Channel}");
-                    SendMessageToChannel(msgJoin,clientInfo,true);
+                    SendMessageToChannel(msgJoin,clientInfo,false);
+                    _udpServer.SendMessageToChannel(msgJoin,clientInfo,false);
                     break;
                 
                 case "MSG":
                     Msg msg = new Msg(words);
                     SendMessageToChannel(msg,clientInfo,false);
+                    _udpServer.SendMessageToChannel(msg,clientInfo,false);
                     break;
                 
                 case "ERR":
@@ -185,7 +190,7 @@ public class TcpServer
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Console.Error.WriteLine(e.Message);
             return 0;
         }
 
@@ -211,15 +216,15 @@ public class TcpServer
                         return 0;
                     }
                 }
-                // foreach (var client in _udpServer.clients)
-                // {
-                //     if (auth.Username == client.Username)
-                //     {
-                //         Reply replyNo = new Reply("Error: You are already logged in", false);
-                //         await SendMessageToUser(replyNo.ToTcpString(), stream, clientInfo);
-                //         return 0;
-                //     }
-                // }
+                foreach (var client in _udpServer.clients)
+                {
+                    if (auth.Username == client.Username)
+                    {
+                        Reply replyNo = new Reply("Error: You are already logged in", false);
+                        await SendMessageToUser(replyNo.ToTcpString(), stream, clientInfo);
+                        return 0;
+                    }
+                }
                 
                 Reply replyOk = new Reply("Success: You're logged in", true);
                 await SendMessageToUser(replyOk.ToTcpString(), stream, clientInfo);
@@ -228,8 +233,8 @@ public class TcpServer
                 clientInfo.State = ClientState.Open;
                 clientInfo.Channel = "default";
                 Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has joined {clientInfo.Channel}");
-                SendMessageToChannel(msg,clientInfo,true);
-
+                SendMessageToChannel(msg,clientInfo,false);
+                _udpServer.SendMessageToChannel(msg,clientInfo,false);
                 return 0;
             }
 
@@ -247,7 +252,7 @@ public class TcpServer
         return 0;
     }
     
-    private async Task SendMessageToChannel(Msg msg,TcpClientInfo clientInfo,bool includeSender)
+    public async Task SendMessageToChannel(Msg msg,ClientInfo1 clientInfo,bool includeSender)
     {
         foreach (var client in clients)
         {
@@ -255,7 +260,7 @@ public class TcpServer
             {
                 if(client.Username==clientInfo.Username && includeSender==false)
                     continue;
-                SendMessageToUser(msg.ToTcpString(), client.Stream, clientInfo);
+                SendMessageToUser(msg.ToTcpString(), client.Stream, client);
             }
         }
     }

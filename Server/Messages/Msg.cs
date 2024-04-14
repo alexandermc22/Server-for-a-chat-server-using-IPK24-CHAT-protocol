@@ -5,6 +5,7 @@ namespace Server.Messages;
 
 public class Msg : IMessage
 {
+    public ushort MsgId { get; set; }
     public MessageType MessageType { get; set; } = MessageType.MSG;
     public string DisplayName { get; set; }
     public string MessageContents { get; set; }
@@ -50,11 +51,77 @@ public class Msg : IMessage
             throw ex;
 
         string pattern = @"^[\x20-\x7E\s]*$";
-        if (!Regex.IsMatch(words[3], pattern))
+        if (!Regex.IsMatch(words[4], pattern))
             throw ex;
 
         DisplayName = words[2];
         MessageContents = words[4];
     }
     
+    public byte[] ToBytes(ushort id)
+    {
+        byte[] displayNameBytes = Encoding.UTF8.GetBytes(DisplayName);
+        byte[] messageContentsBytes = Encoding.UTF8.GetBytes(MessageContents);
+
+        // Create an array to combine all bytes
+        byte[] result = new byte[1 + 2 + displayNameBytes.Length + 1 + messageContentsBytes.Length + 1];
+
+        result[0] = (byte)MessageType;
+
+        byte[] messageIdBytes = BitConverter.GetBytes(id);
+        Array.Copy(messageIdBytes, 0, result, 1, 2);
+
+        int offset = 3;
+
+        Array.Copy(displayNameBytes, 0, result, offset, displayNameBytes.Length);
+        offset += displayNameBytes.Length;
+        result[offset++] = 0; // Null terminator after DisplayName
+
+        Array.Copy(messageContentsBytes, 0, result, offset, messageContentsBytes.Length);
+        offset += messageContentsBytes.Length;
+        result[offset] = 0; // Null terminator after MessageContents
+
+        return result;
+    }
+    
+    public  Msg(byte[] data)
+    {
+        Exception ex = new Exception("Wrong data from server");
+        // Check the length of the array
+        if (data.Length >= 3)
+        {
+            MessageType = (MessageType)data[0];
+
+            // Getting MessageId from byte array
+             MsgId = BitConverter.ToUInt16(data, 1);
+
+            int offset = 3;
+
+            // DisplayName
+            int displayNameLength = Array.IndexOf<byte>(data, 0, offset) - offset;
+            if (displayNameLength >= 0)
+            {
+                DisplayName = Encoding.UTF8.GetString(data, offset, displayNameLength);
+                offset += displayNameLength + 1; // Move to the next byte after the null terminator
+            }
+
+            // MessageContents
+            int messageContentsLength = Array.IndexOf<byte>(data, 0, offset) - offset;
+            if (messageContentsLength >= 0)
+            {
+                MessageContents = Encoding.UTF8.GetString(data, offset, messageContentsLength);
+            }
+            string patternDname = @"^[\x20-\x7E]*$";
+            if (!Regex.IsMatch(DisplayName, patternDname))
+                throw ex;
+            string pattern = @"^[\x20-\x7E\s]*$";
+            if (!Regex.IsMatch(MessageContents, pattern))
+                throw ex;
+        }
+        else
+        {
+            throw ex;
+        }
+        
+    }
 }

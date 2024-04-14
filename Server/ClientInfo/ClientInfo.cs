@@ -8,12 +8,12 @@ public enum ClientState
     End,
     Error
 }
-public interface ClientInfo
+public interface ClientInfo1
 {
     string DisplayName { get; set; }
     string Username { get; set; }
     string? Channel { get; set; }
     ClientState State { get; set; }
     
-    Task SendMessageToChannel(string message,string channel,ClientInfo client); // Отправка сообщения в канал клиенту
+
 }

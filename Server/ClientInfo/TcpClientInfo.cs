@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 namespace Server.ClientInfo;
 
-public class TcpClientInfo : ClientInfo
+public class TcpClientInfo : ClientInfo1
 {
     public string DisplayName { get; set; }
     public string Username { get; set; }
@@ -31,8 +31,5 @@ public class TcpClientInfo : ClientInfo
         State = ClientState.Auth; // Например, устанавливаем начальное состояние подключения
     }
     
-    public Task SendMessageToChannel(string message, string channel, ClientInfo client)
-    {
-        return Task.CompletedTask;
-    }
+
 }
