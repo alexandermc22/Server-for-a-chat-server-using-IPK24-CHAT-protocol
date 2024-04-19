@@ -166,6 +166,7 @@ public class TcpServer
                 
                 case "MSG":
                     Msg msg = new Msg(words);
+                    clientInfo.DisplayName = msg.DisplayName;
                     SendMessageToChannel(msg,clientInfo,false);
                     _udpServer.SendMessageToChannel(msg,clientInfo,false);
                     break;

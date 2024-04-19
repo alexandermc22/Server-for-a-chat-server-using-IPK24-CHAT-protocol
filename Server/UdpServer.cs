@@ -39,8 +39,6 @@ public class UdpServer
             {
                 UdpReceiveResult result = await udpListener.ReceiveAsync();
                 
-                
-
                 IPEndPoint clientEndPoint = result.RemoteEndPoint;
                 IPEndPoint localEndPoint = new IPEndPoint(globalEndPoint.Address, 0);
                 UdpClient client = new UdpClient(localEndPoint);
@@ -50,6 +48,7 @@ public class UdpServer
                     Console.WriteLine($"RECV {clientInfo.ClientEndPoint} | AUTH");
                 SendConfirm(result.Buffer, clientInfo);
                 clientInfo.LastMsgId =  BitConverter.ToUInt16(result.Buffer, 1);
+                
                 
                 HandleClient(clientInfo,result.Buffer);
             }
@@ -122,8 +121,9 @@ public class UdpServer
 
                     byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
                     Array.Copy(messageIdBytes, 0, bye, 1, 2);
-                    await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
-                    break;
+                    SendMessageAsync(bye, clientInfo);
+                    clientInfo.State=ClientState.End;
+                    continue;
                 }
                 
                 
@@ -183,6 +183,7 @@ public class UdpServer
                 
                 case (byte)MessageType.MSG:
                     Msg msg = new Msg(buffer);
+                    clientInfo.DisplayName = msg.DisplayName;
                     SendMessageToChannel(msg,clientInfo,false);
                     _tcpServer.SendMessageToChannel(msg, clientInfo, false);
                     break;
@@ -193,7 +194,7 @@ public class UdpServer
                     bye[0] = 0xFF;
                     byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
                     Array.Copy(messageIdBytes, 0, bye, 1, 2);
-                    await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
+                    SendMessageAsync(bye, clientInfo);
                     clientInfo.State=ClientState.End;
                     break;
             }
