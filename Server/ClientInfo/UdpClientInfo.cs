@@ -18,7 +18,9 @@ public class UdpClientInfo  : ClientInfo1
     public Queue<Confirm> ConfirmQueue;
     public ushort MessageIdCounter;
     public ushort LastMsgId;
-
+    
+    public CancellationTokenSource CancellationTokenSource;
+    public CancellationToken CancellationToken;
  
     public UdpClientInfo(UdpClient client, IPEndPoint clientEndPoint)
     {
@@ -33,6 +35,9 @@ public class UdpClientInfo  : ClientInfo1
         LastMsgId=0;
         ConfirmQueue = new Queue<Confirm>();
         MessageIdCounter = 0;
+        
+        CancellationTokenSource = new CancellationTokenSource();
+        CancellationToken = CancellationTokenSource.Token;
     }
 
 

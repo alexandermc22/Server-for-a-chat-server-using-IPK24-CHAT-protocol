@@ -37,20 +37,20 @@ public class UdpServer
         {
             while (isRunning)
             {
-                UdpReceiveResult result = await udpListener.ReceiveAsync();
+                UdpReceiveResult res = await udpListener.ReceiveAsync();
                 
-                IPEndPoint clientEndPoint = result.RemoteEndPoint;
+                IPEndPoint clientEndPoint = res.RemoteEndPoint;
                 IPEndPoint localEndPoint = new IPEndPoint(globalEndPoint.Address, 0);
                 UdpClient client = new UdpClient(localEndPoint);
                 UdpClientInfo clientInfo = new UdpClientInfo(client, clientEndPoint);
                 clients.Add(clientInfo);
-                if(result.Buffer[0]==(byte)MessageType.AUTH)
+                if(res.Buffer[0]==(byte)MessageType.AUTH)
                     Console.WriteLine($"RECV {clientInfo.ClientEndPoint} | AUTH");
-                SendConfirm(result.Buffer, clientInfo);
-                clientInfo.LastMsgId =  BitConverter.ToUInt16(result.Buffer, 1);
+                SendConfirm(res.Buffer, clientInfo);
+                clientInfo.LastMsgId =  BitConverter.ToUInt16(res.Buffer, 1);
                 
                 
-                HandleClient(clientInfo,result.Buffer);
+                HandleClient(clientInfo,res.Buffer);
             }
         }
         catch (Exception e)
@@ -62,17 +62,18 @@ public class UdpServer
 
     private async void HandleClient(UdpClientInfo clientInfo,byte[] buffer)
     {
+        
         try
         {
             Console.WriteLine($"Client connected: {clientInfo.ClientEndPoint}");
             
+            
             HandleAuthClient(clientInfo, buffer);
             
-            bool isRunning = true;
-            while (isRunning)
+            while (!clientInfo.CancellationToken.IsCancellationRequested)
             {
-                UdpReceiveResult result = await clientInfo.Client.ReceiveAsync();
-                string msg="";
+                UdpReceiveResult result = await clientInfo.Client.ReceiveAsync(clientInfo.CancellationToken);
+                string msg;
                 switch (result.Buffer[0])
                 {
                     case (byte)MessageType.MSG:
@@ -93,6 +94,9 @@ public class UdpServer
                     case (byte)MessageType.AUTH:
                         msg = "AUTH";
                         break;
+                    default:
+                        msg = "UNKNOWN";
+                        break;
                 }   
                 
                 Console.WriteLine($"RECV {clientInfo.ClientEndPoint} | {msg}");
@@ -106,25 +110,10 @@ public class UdpServer
                 }
                 
                 SendConfirm(result.Buffer, clientInfo);
-
-                if (result.Buffer[0] == (byte)MessageType.BYE)
-                {
-                    break;
-                }
-
-                if (result.Buffer[0] == (byte)MessageType.ERR)
-                {
-                    Console.Error.WriteLine($"ERR from {clientInfo.DisplayName}");
-                    byte[] bye = new byte[1 + 2];
-
-                    bye[0] = 0xFF;
-
-                    byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
-                    Array.Copy(messageIdBytes, 0, bye, 1, 2);
-                    SendMessageAsync(bye, clientInfo);
-                    clientInfo.State=ClientState.End;
+                
+                if (clientInfo.State==ClientState.End)
                     continue;
-                }
+                
                 
                 
                 if (clientInfo.LastMsgId>=BitConverter.ToUInt16(result.Buffer, 1))
@@ -140,23 +129,34 @@ public class UdpServer
                          HandleOpenClient(clientInfo, result.Buffer);
                         break;
                 }
-                if (clientInfo.State==ClientState.End)
-                    break;
+                
             }
-            Msg msgLeft = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
-            SendMessageToChannel(msgLeft,clientInfo,false);
-            
-            _tcpServer.SendMessageToChannel(msgLeft, clientInfo, false);
-            clientInfo.Client.Close();
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error handling client: {ex.Message}");
+            clientInfo.CancellationTokenSource.Cancel();
+            //todo send error
+            Console.Error.WriteLine($"Error handling client: {ex}");
         }
         finally
         {
+            
+            await Task.Delay(UdpTimeout * MaxRetries);
+            if (clientInfo.Channel != null)
+            {
+                Msg msgLeft = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
+                SendMessageToChannel(msgLeft,clientInfo,false);
+                _tcpServer.SendMessageToChannel(msgLeft, clientInfo, false);
+            }
+            await Task.Delay(UdpTimeout * MaxRetries);
+            clientInfo.Client.Close();
             clients.Remove(clientInfo);
+            
         }
+        
     }
 
     private async void HandleOpenClient(UdpClientInfo clientInfo, byte[] buffer)
@@ -187,21 +187,50 @@ public class UdpServer
                     SendMessageToChannel(msg,clientInfo,false);
                     _tcpServer.SendMessageToChannel(msg, clientInfo, false);
                     break;
+                
+                case (byte)MessageType.ERR:
+                        Console.Error.WriteLine($"ERR from {clientInfo.DisplayName}");
+                        byte[] bye = new byte[1 + 2];
+                        bye[0] = 0xFF;
+                        byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
+                        Array.Copy(messageIdBytes, 0, bye, 1, 2);
+                        SendMessageAsync(bye, clientInfo);
+                        await Task.Delay(MaxRetries * UdpTimeout);
+                        clientInfo.CancellationTokenSource.Cancel();
+                        break;
+                case (byte)MessageType.BYE:
+                    clientInfo.State = ClientState.End;
+                    await Task.Delay(MaxRetries * UdpTimeout);
+                    clientInfo.CancellationTokenSource.Cancel();
+                        break;
+                
                 default:
                     Err err = new Err("Server", "unknown data");
                     SendMessageAsync(err.ToBytes(clientInfo.MessageIdCounter), clientInfo);
-                    byte[] bye = new byte[1 + 2];
+                    bye = new byte[1 + 2];
                     bye[0] = 0xFF;
-                    byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
+                    messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
                     Array.Copy(messageIdBytes, 0, bye, 1, 2);
                     SendMessageAsync(bye, clientInfo);
                     clientInfo.State=ClientState.End;
+                    await Task.Delay(MaxRetries * UdpTimeout);
+                    clientInfo.CancellationTokenSource.Cancel();
                     break;
             }
         }
         catch (Exception e)
         {
+            clientInfo.State=ClientState.End;
             Console.Error.WriteLine(e.Message);
+            Err err = new Err("Server", "unknown data");
+            SendMessageAsync(err.ToBytes(clientInfo.MessageIdCounter), clientInfo);
+            byte[] bye = new byte[1 + 2];
+            bye[0] = 0xFF;
+            byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
+            Array.Copy(messageIdBytes, 0, bye, 1, 2);
+            SendMessageAsync(bye, clientInfo);
+            await Task.Delay(MaxRetries * UdpTimeout);
+            clientInfo.CancellationTokenSource.Cancel();
             return;
         }
     }
@@ -225,46 +254,64 @@ public class UdpServer
     {
         try
         {
-        switch (buffer[0])
-        {
-            case (byte)MessageType.AUTH:
-                Auth auth = new Auth(buffer);
-                
-                foreach (var client in clients)
-                {
-                    if (auth.Username == client.Username)
+            switch (buffer[0])
+            {
+                case (byte)MessageType.AUTH:
+                    Auth auth = new Auth(buffer);
+                    
+                    foreach (var client in clients)
                     {
-                        Reply replyNo = new Reply("You are already logged in", false,auth.MsgId);
-                        SendMessageAsync(replyNo.ToBytes(clientInfo.MessageIdCounter),clientInfo); 
-                        return;
+                        if (auth.Username == client.Username)
+                        {
+                            Reply replyNo = new Reply("You are already logged in", false,auth.MsgId);
+                            SendMessageAsync(replyNo.ToBytes(clientInfo.MessageIdCounter),clientInfo); 
+                            return;
+                        }
                     }
-                }
-                foreach (var client in _tcpServer.clients)
-                {
-                    if (auth.Username == client.Username)
+                    foreach (var client in _tcpServer.clients)
                     {
-                        Reply replyNo = new Reply("Error: You are already logged in", false,auth.MsgId);
-                        SendMessageAsync(replyNo.ToBytes(clientInfo.MessageIdCounter),clientInfo);
-                        return;
+                        if (auth.Username == client.Username)
+                        {
+                            Reply replyNo = new Reply("Error: You are already logged in", false,auth.MsgId);
+                            SendMessageAsync(replyNo.ToBytes(clientInfo.MessageIdCounter),clientInfo);
+                            return;
+                        }
                     }
-                }
+                    
+                    Reply replyOk = new Reply("Success: You're logged in", true,auth.MsgId);
+                    SendMessageAsync(replyOk.ToBytes(clientInfo.MessageIdCounter),clientInfo); 
+                    clientInfo.Username = auth.Username;
+                    clientInfo.DisplayName = auth.DisplayName;
+                    clientInfo.State = ClientState.Open;
+                    clientInfo.Channel = "default";
+                    
+                    Msg msgJoin = new Msg("Server", $"{clientInfo.DisplayName} has join {clientInfo.Channel}");
+                    SendMessageToChannel(msgJoin,clientInfo,false);
+                    _tcpServer.SendMessageToChannel(msgJoin, clientInfo, false);
+                    break;
                 
-                Reply replyOk = new Reply("Success: You're logged in", true,auth.MsgId);
-                SendMessageAsync(replyOk.ToBytes(clientInfo.MessageIdCounter),clientInfo); 
-                clientInfo.Username = auth.Username;
-                clientInfo.DisplayName = auth.DisplayName;
-                clientInfo.State = ClientState.Open;
-                clientInfo.Channel = "default";
+                case (byte)MessageType.BYE:
+                    clientInfo.State = ClientState.End;
+                    await Task.Delay(MaxRetries * UdpTimeout);
+                    clientInfo.CancellationTokenSource.Cancel();
+                    break;
                 
-                Msg msgJoin = new Msg("Server", $"{clientInfo.DisplayName} has join {clientInfo.Channel}");
-                SendMessageToChannel(msgJoin,clientInfo,false);
-                _tcpServer.SendMessageToChannel(msgJoin, clientInfo, false);
-                break;
-        }
+                
+            }
         }
         catch (Exception e)
         {
+            clientInfo.State=ClientState.End;
             Console.Error.WriteLine(e.Message);
+            Err err = new Err("Server", "unknown data");
+            SendMessageAsync(err.ToBytes(clientInfo.MessageIdCounter), clientInfo);
+            byte[] bye = new byte[1 + 2];
+            bye[0] = 0xFF;
+            byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
+            Array.Copy(messageIdBytes, 0, bye, 1, 2);
+            SendMessageAsync(bye, clientInfo);
+            await Task.Delay(MaxRetries * UdpTimeout);
+            clientInfo.CancellationTokenSource.Cancel();
             return;
         }
         
@@ -314,10 +361,36 @@ public class UdpServer
                 {
                     return;
                 }
+                clientInfo.ConfirmQueue.Enqueue(confirm);
             }
 
         }
-        // if no response
+        // clientInfo.MessageIdCounter++;
         Console.Error.WriteLine($"ERR: No confirm from {clientInfo.ClientEndPoint}");
+        byte[] bye = new byte[1 + 2];
+        bye[0] = 0xFF;
+        byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
+        Array.Copy(messageIdBytes, 0, bye, 1, 2);
+        await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
+        //
+        // for (int i = 0; i < MaxRetries; i++)
+        // {
+        //     Console.WriteLine($"SENT {clientInfo.ClientEndPoint} | BYE");
+        //     await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
+        //     // wait confirm 
+        //     await Task.Delay(UdpTimeout);
+        //     
+        //     while (clientInfo.ConfirmQueue.Count > 0) // use queue to receive confirm
+        //     {
+        //         Confirm confirm = clientInfo.ConfirmQueue.Dequeue();
+        //         if (confirm.MessageId == BitConverter.ToUInt16(message, 1))
+        //         {
+        //             clientInfo.CancellationTokenSource.Cancel();
+        //             return;
+        //         }
+        //         clientInfo.ConfirmQueue.Enqueue(confirm);
+        //     }
+        // }
+        clientInfo.CancellationTokenSource.Cancel();
     }
 }
