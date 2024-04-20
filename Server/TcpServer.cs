@@ -33,16 +33,8 @@ public class TcpServer
 
             while (isRunning)
             {
-                TcpClient client = await listener.AcceptTcpClientAsync();
                 
-                IPEndPoint clientEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
-                
-                IPAddress clientIpAddress = clientEndPoint.Address;
-                int clientPort = clientEndPoint.Port;
-                
-                TcpClientInfo clientInfo = new TcpClientInfo(client,clientIpAddress,clientPort);
-                clients.Add(clientInfo);
-                HandleClient(clientInfo,client);
+                HandleClient();
             }
         }
         catch (Exception ex)
@@ -58,8 +50,18 @@ public class TcpServer
         Console.WriteLine("TCP Server stopped.");
     }
 
-    private async void HandleClient(TcpClientInfo clientInfo,TcpClient client)
+    private async void HandleClient()
     {
+        TcpClient client = await listener.AcceptTcpClientAsync();
+                
+        IPEndPoint clientEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
+                
+        IPAddress clientIpAddress = clientEndPoint.Address;
+        int clientPort = clientEndPoint.Port;
+                
+        TcpClientInfo clientInfo = new TcpClientInfo(client,clientIpAddress,clientPort);
+        clients.Add(clientInfo);
+        
         try
         {
             Console.WriteLine($"Client connected: {client.Client.RemoteEndPoint}");
@@ -124,12 +126,7 @@ public class TcpServer
                     break;
             }
             
-            Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
-            SendMessageToChannel(msg,clientInfo,false);
-            _udpServer.SendMessageToChannel(msg,clientInfo,false);
-            
-            Console.WriteLine($"{clientInfo.DisplayName} has left {clientInfo.Channel}");
-            client.Close();
+           
         }
         catch (Exception ex)
         {
@@ -137,6 +134,14 @@ public class TcpServer
         }
         finally
         {
+            if (clientInfo.Channel != null)
+            {
+                Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
+                SendMessageToChannel(msg,clientInfo,false);
+                _udpServer.SendMessageToChannel(msg,clientInfo,false);
+                Console.Error.WriteLine($"{clientInfo.DisplayName} has left {clientInfo.Channel}");
+            }
+            client.Close();
             clients.Remove(clientInfo);
         }
     }
