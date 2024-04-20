@@ -41,6 +41,9 @@ public class Err: IMessage
             throw ex;
         if (words[4].Length > 1400)
             throw ex;
+        
+        if (words[2].Length > 20)
+            throw ex;
 
         string pattern = @"^[\x20-\x7E\s]*$";
         if (!Regex.IsMatch(words[3], pattern))

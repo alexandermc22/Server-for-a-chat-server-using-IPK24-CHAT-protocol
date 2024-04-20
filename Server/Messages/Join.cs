@@ -62,6 +62,11 @@ public class Join : IMessage
         string patternDname = @"^[\x20-\x7E]*$";
         if (!Regex.IsMatch(DisplayName, patternDname))
             throw ex;
+        
+        if (DisplayName.Length > 20)
+            throw ex;
+        if (ChannelId.Length > 20)
+            throw ex;
     }
     
 }

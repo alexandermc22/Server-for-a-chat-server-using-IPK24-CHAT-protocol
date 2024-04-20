@@ -111,11 +111,18 @@ public class Msg : IMessage
             {
                 MessageContents = Encoding.UTF8.GetString(data, offset, messageContentsLength);
             }
+            else
+            {
+                throw ex;
+            }
             string patternDname = @"^[\x20-\x7E]*$";
             if (!Regex.IsMatch(DisplayName, patternDname))
                 throw ex;
             string pattern = @"^[\x20-\x7E\s]*$";
             if (!Regex.IsMatch(MessageContents, pattern))
+                throw ex;
+            
+            if (MessageContents.Length > 1400)
                 throw ex;
         }
         else
