@@ -24,36 +24,44 @@ public class TcpServer
         clients = new List<TcpClientInfo>();
     }
 
-    public async Task Start(UdpServer udpServer)
+    public async Task Start(UdpServer udpServer,CancellationToken ct)
     {
         try
         {
             _udpServer = udpServer;
             listener.Start();
             isRunning = true;
-            Console.WriteLine("TCP Server started.");
 
             while (isRunning)
             {
-                HandleClient();
+                TcpClient client = await listener.AcceptTcpClientAsync(ct);
+                HandleClient(client);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            //cleanall
+            foreach (var clientInfo in clients )
+            {
+                SendMessageToUser("BYE\r\n", clientInfo.Stream, clientInfo);
+            }
+            
+            foreach (var clientInfo in clients )
+            {
+                clientInfo.CancellationTokenSource.Cancel();
+            }
+            
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
         }
     }
+    
 
-    public void Stop()
+    private async void HandleClient(TcpClient client)
     {
-        isRunning = false;
-        listener.Stop();
-        Console.WriteLine("TCP Server stopped.");
-    }
-
-    private async void HandleClient()
-    {
-        TcpClient client = await listener.AcceptTcpClientAsync();
+        
 
         IPEndPoint clientEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
 
@@ -65,7 +73,7 @@ public class TcpServer
 
         try
         {
-            Console.WriteLine($"Client connected: {client.Client.RemoteEndPoint}");
+            // Console.WriteLine($"Client connected: {client.Client.RemoteEndPoint}");
 
             NetworkStream stream = client.GetStream();
             clientInfo.Stream = stream;
@@ -80,7 +88,6 @@ public class TcpServer
                 int ind = Array.IndexOf(buffer, sequenceToFind[0]);
                 if (ind >= 0 && ind + 1 < buffer.Length && buffer[ind + 1] == sequenceToFind[1])
                 {
-                    Console.WriteLine("find \\r\\n ");
                     receivedMessage = Encoding.UTF8.GetString(buffer, 0, ind);
 
                     int remainingLength = 0;
@@ -111,9 +118,8 @@ public class TcpServer
                         SendMessageToUser("BYE\r\n", stream, clientInfo);
                         break;
                     }
-            
-                    Console.WriteLine("not f \\r\\n.");
-                    bytesRead = await stream.ReadAsync(buffer, offset, buffer.Length - offset);
+                    
+                    bytesRead = await stream.ReadAsync(buffer, offset, buffer.Length - offset,clientInfo.CancellationToken);
                     offset += bytesRead;
                     if (bytesRead <= 0)
                     {
@@ -161,9 +167,13 @@ public class TcpServer
                     break;
             }
         }
+        catch (OperationCanceledException)
+        {
+            clientInfo.Channel = null;
+        }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error handling client: {ex.Message}");
+            Console.Error.WriteLine($"Error handling client: {ex.Message}");
         }
         finally
         {

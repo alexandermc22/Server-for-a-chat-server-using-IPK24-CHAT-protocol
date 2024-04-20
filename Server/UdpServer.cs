@@ -28,26 +28,42 @@ public class UdpServer
         udpListener = new UdpClient(globalEndPoint);
     }
 
-    public async Task Start(TcpServer tcpServer)
+    public async Task Start(TcpServer tcpServer,CancellationToken ct)
     {
         _tcpServer = tcpServer;
         isRunning = true;
-        Console.WriteLine("UDP Server started.");
         try
         {
             while (isRunning)
             {
-                UdpReceiveResult res = await udpListener.ReceiveAsync();
-                
-                
-                
-                
+                UdpReceiveResult res = await udpListener.ReceiveAsync(ct);
                 HandleClient(res,res.Buffer);
             }
         }
+        catch (OperationCanceledException)
+        {
+            byte[] bye = new byte[1 + 2];
+            bye[0] = 0xFF;
+            
+            //cleanall
+            foreach (var clientInfo in clients )
+            {
+                byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
+                Array.Copy(messageIdBytes, 0, bye, 1, 2);
+                SendMessageAsync(bye, clientInfo);
+                
+            }
+            await Task.Delay(MaxRetries * UdpTimeout*2);
+            foreach (var clientInfo in clients )
+            {
+                clientInfo.Channel = null;
+                clientInfo.CancellationTokenSource.Cancel();
+            }
+            
+        }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Console.Error.WriteLine(e);
             throw;
         }
     }
@@ -67,7 +83,7 @@ public class UdpServer
         
         try
         {
-            Console.WriteLine($"Client connected: {clientInfo.ClientEndPoint}");
+            //Console.WriteLine($"Client connected: {clientInfo.ClientEndPoint}");
             
             
             HandleAuthClient(clientInfo, buffer);

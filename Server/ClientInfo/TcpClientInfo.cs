@@ -16,6 +16,9 @@ public class TcpClientInfo : ClientInfo1
     public IPAddress ClientIpAddress { get; set; }
     public int ClientPort { get; set; }
     
+    public CancellationTokenSource CancellationTokenSource;
+    public CancellationToken CancellationToken;
+    
     public NetworkStream Stream { get; set; }
     
     public TcpClientInfo(TcpClient client, IPAddress clientIpAddress, int clientPort)
@@ -29,6 +32,9 @@ public class TcpClientInfo : ClientInfo1
         Username = null;
         Channel = null;
         State = ClientState.Auth; // Например, устанавливаем начальное состояние подключения
+        
+        CancellationTokenSource = new CancellationTokenSource();
+        CancellationToken = CancellationTokenSource.Token;
     }
     
 
