@@ -403,6 +403,7 @@ public class UdpServer
             }
             catch (Exception e)
             {
+                clientInfo.CancellationTokenSource.Cancel();
             }
 
     }
