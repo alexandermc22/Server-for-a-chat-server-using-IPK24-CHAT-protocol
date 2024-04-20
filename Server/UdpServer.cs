@@ -39,18 +39,10 @@ public class UdpServer
             {
                 UdpReceiveResult res = await udpListener.ReceiveAsync();
                 
-                IPEndPoint clientEndPoint = res.RemoteEndPoint;
-                IPEndPoint localEndPoint = new IPEndPoint(globalEndPoint.Address, 0);
-                UdpClient client = new UdpClient(localEndPoint);
-                UdpClientInfo clientInfo = new UdpClientInfo(client, clientEndPoint);
-                clients.Add(clientInfo);
-                if(res.Buffer[0]==(byte)MessageType.AUTH)
-                    Console.WriteLine($"RECV {clientInfo.ClientEndPoint} | AUTH");
-                SendConfirm(res.Buffer, clientInfo);
-                clientInfo.LastMsgId =  BitConverter.ToUInt16(res.Buffer, 1);
                 
                 
-                HandleClient(clientInfo,res.Buffer);
+                
+                HandleClient(res,res.Buffer);
             }
         }
         catch (Exception e)
@@ -60,8 +52,18 @@ public class UdpServer
         }
     }
 
-    private async void HandleClient(UdpClientInfo clientInfo,byte[] buffer)
+    private async void HandleClient(UdpReceiveResult res,byte[] buffer)
     {
+        
+        IPEndPoint clientEndPoint = res.RemoteEndPoint;
+        IPEndPoint localEndPoint = new IPEndPoint(globalEndPoint.Address, 0);
+        UdpClient client = new UdpClient(localEndPoint);
+        UdpClientInfo clientInfo = new UdpClientInfo(client, clientEndPoint);
+        clients.Add(clientInfo);
+        if(res.Buffer[0]==(byte)MessageType.AUTH)
+            Console.WriteLine($"RECV {clientInfo.ClientEndPoint} | AUTH");
+        SendConfirm(res.Buffer, clientInfo);
+        clientInfo.LastMsgId =  BitConverter.ToUInt16(res.Buffer, 1);
         
         try
         {
@@ -143,15 +145,13 @@ public class UdpServer
         }
         finally
         {
-            
-            await Task.Delay(UdpTimeout * MaxRetries);
             if (clientInfo.Channel != null)
             {
                 Msg msgLeft = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
-                SendMessageToChannel(msgLeft,clientInfo,false);
-                _tcpServer.SendMessageToChannel(msgLeft, clientInfo, false);
+                Task a= SendMessageToChannel(msgLeft,clientInfo,false);
+                Task b =  _tcpServer.SendMessageToChannel(msgLeft, clientInfo, false);
+                await Task.WhenAll(a, b);
             }
-            await Task.Delay(UdpTimeout * MaxRetries);
             clientInfo.Client.Close();
             clients.Remove(clientInfo);
             
@@ -235,7 +235,7 @@ public class UdpServer
         }
     }
 
-    public async void SendMessageToChannel(Msg msg, ClientInfo1 clientInfo, bool includeSender)
+    public async Task SendMessageToChannel(Msg msg, ClientInfo1 clientInfo, bool includeSender)
     {
         foreach (var client in clients)
         {
@@ -371,26 +371,32 @@ public class UdpServer
         bye[0] = 0xFF;
         byte[] messageIdBytes = BitConverter.GetBytes(clientInfo.MessageIdCounter);
         Array.Copy(messageIdBytes, 0, bye, 1, 2);
-        await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
-        //
-        // for (int i = 0; i < MaxRetries; i++)
-        // {
-        //     Console.WriteLine($"SENT {clientInfo.ClientEndPoint} | BYE");
-        //     await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
-        //     // wait confirm 
-        //     await Task.Delay(UdpTimeout);
-        //     
-        //     while (clientInfo.ConfirmQueue.Count > 0) // use queue to receive confirm
-        //     {
-        //         Confirm confirm = clientInfo.ConfirmQueue.Dequeue();
-        //         if (confirm.MessageId == BitConverter.ToUInt16(message, 1))
-        //         {
-        //             clientInfo.CancellationTokenSource.Cancel();
-        //             return;
-        //         }
-        //         clientInfo.ConfirmQueue.Enqueue(confirm);
-        //     }
-        // }
-        clientInfo.CancellationTokenSource.Cancel();
+            //await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
+            try
+            {
+                for (int i = 0; i < MaxRetries; i++)
+                {
+                    Console.WriteLine($"SENT {clientInfo.ClientEndPoint} | BYE");
+                    await clientInfo.Client.SendAsync(bye, bye.Length, clientInfo.ClientEndPoint);
+                    // wait confirm 
+                    await Task.Delay(UdpTimeout);
+            
+                    while (clientInfo.ConfirmQueue.Count > 0) // use queue to receive confirm
+                    {
+                        Confirm confirm = clientInfo.ConfirmQueue.Dequeue();
+                        if (confirm.MessageId == BitConverter.ToUInt16(message, 1))
+                        {
+                            clientInfo.CancellationTokenSource.Cancel();
+                            return;
+                        }
+                        clientInfo.ConfirmQueue.Enqueue(confirm);
+                    }
+                }
+                clientInfo.CancellationTokenSource.Cancel();
+            }
+            catch (Exception e)
+            {
+            }
+
     }
 }
