@@ -237,15 +237,22 @@ public class UdpServer
 
     public async Task SendMessageToChannel(Msg msg, ClientInfo1 clientInfo, bool includeSender)
     {
-        foreach (var client in clients)
+        try
         {
-            if (client.Channel == clientInfo.Channel)
+            foreach (var client in clients)
             {
-                if(client.Username==clientInfo.Username && includeSender==false)
-                    continue;
+                if (client.Channel == clientInfo.Channel)
+                {
+                    if(client.Username==clientInfo.Username && includeSender==false)
+                        continue;
 
-                SendMessageAsync(msg.ToBytes(client.MessageIdCounter),client);
+                    SendMessageAsync(msg.ToBytes(client.MessageIdCounter),client);
+                }
             }
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine(e);
         }
     }
 
