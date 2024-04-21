@@ -43,7 +43,7 @@ public class Auth : IMessage
     public  Auth(byte[] data)
     {
         Exception ex = new Exception("Wrong data");
-        if (data == null || data.Length < 7) // Минимальный размер сообщения
+        if (data == null || data.Length < 7) // Minimum message size
         {
             throw ex;
         }
@@ -83,7 +83,7 @@ public class Auth : IMessage
         }
 
         string str = Encoding.UTF8.GetString(data, offset, length);
-        offset += length + 1; // Пропускаем нулевой терминатор
+        offset += length + 1; // Skip the null terminator
         return str;
     }
     

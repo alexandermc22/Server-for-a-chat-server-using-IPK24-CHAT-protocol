@@ -28,14 +28,17 @@ public class Server
                 {
                     CancellationTokenSource cts = new CancellationTokenSource();
 
-                    // Подписываемся на событие нажатия Ctrl+C
+                    // Subscribe to the event of pressing Ctrl+C
                     Console.CancelKeyPress += (sender, eventArgs) =>
                     {
-                        eventArgs.Cancel = true; // Отменяем действие по умолчанию (завершение программы)
-                        cts.Cancel(); // Отменяем выполнение операции или цикла
+                        eventArgs.Cancel = true; // Cancel the default action (program termination)
+                        cts.Cancel(); // Cancel the operation or loop
                     };
+                    // create cancel token for udp,tcp
                     CancellationTokenSource ctsTcp = new CancellationTokenSource();
                     CancellationTokenSource ctsUdp = new CancellationTokenSource();
+                    
+                    // create two class elements and start the processes
                     TcpServer tcpServer = new TcpServer(ProgramOptions.Ip, ProgramOptions.Port);
                     UdpServer udpServer = new UdpServer(ProgramOptions.Ip, ProgramOptions.Port,
                         ProgramOptions.MaxRetries, ProgramOptions.UdpTimeout);
@@ -43,11 +46,16 @@ public class Server
                     Task tcpTask = Task.Run(async () => await tcpServer.Start(udpServer,ctsUdp.Token));
                     Task udpTask = Task.Run(async () => await udpServer.Start(tcpServer,ctsTcp.Token));
                     Task completedTask = await Task.WhenAny(tcpTask, udpTask, Task.Delay(-1, cts.Token));
+                    // use the cancel token to terminate the program correctly
                     if (completedTask == tcpTask)
                     {
+                        ctsUdp.Cancel();
+                        await udpTask;
                     }
                     else if (completedTask == udpTask)
                     {
+                        ctsTcp.Cancel();
+                        await tcpTask;
                     }
                     else
                     {
@@ -73,7 +81,7 @@ public class Server
         }
         else
         {
-            // Если аргументы не были распарсены, выводим сообщение об ошибке
+            // If the arguments were not parsed, print an error message
             await Console.Error.WriteLineAsync("Failed to parse arguments.");
         }
 

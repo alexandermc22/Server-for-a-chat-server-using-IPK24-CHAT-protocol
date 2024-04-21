@@ -4,15 +4,15 @@ namespace Server.ClientInfo;
 
 public class TcpClientInfo : ClientInfo1
 {
-    public string DisplayName { get; set; }
-    public string Username { get; set; }
+    public string? DisplayName { get; set; }
+    public string? Username { get; set; }
     public string? Channel { get; set; }
     public ClientState State { get; set; }
     
-    // Добавляем ссылку на TcpClient для обмена данными с клиентом
+    // Add a reference to TcpClient for data exchange with the client
     public TcpClient Client { get; set; }
 
-    // Другие свойства, например IP-адрес и порт клиента
+    // Other properties such as client IP address and port
     public IPAddress ClientIpAddress { get; set; }
     public int ClientPort { get; set; }
     
@@ -27,11 +27,11 @@ public class TcpClientInfo : ClientInfo1
         ClientIpAddress = clientIpAddress;
         ClientPort = clientPort;
         
-        // Инициализация других свойств по умолчанию или в нужном состоянии
+        
         DisplayName = null;
         Username = null;
         Channel = null;
-        State = ClientState.Auth; // Например, устанавливаем начальное состояние подключения
+        State = ClientState.Auth; 
         
         CancellationTokenSource = new CancellationTokenSource();
         CancellationToken = CancellationTokenSource.Token;

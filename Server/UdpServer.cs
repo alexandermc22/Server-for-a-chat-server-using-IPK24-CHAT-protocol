@@ -27,7 +27,8 @@ public class UdpServer
         globalEndPoint = new IPEndPoint(ip, port);
         udpListener = new UdpClient(globalEndPoint);
     }
-
+    
+    // the function waits for incoming connections and processes them and clears the memory after itself.
     public async Task Start(TcpServer tcpServer,CancellationToken ct)
     {
         _tcpServer = tcpServer;
@@ -67,7 +68,8 @@ public class UdpServer
             throw;
         }
     }
-
+    
+    // Main function that receives a message from the user, sends an acknowledgement and calls a task to process the message. 
     private async void HandleClient(UdpReceiveResult res,byte[] buffer)
     {
         
@@ -174,7 +176,8 @@ public class UdpServer
         }
         
     }
-
+    
+    // the function describes the work with the user at the stage when the user is authenticated and connected to the channel
     private async void HandleOpenClient(UdpClientInfo clientInfo, byte[] buffer)
     {
         try
@@ -250,7 +253,7 @@ public class UdpServer
             return;
         }
     }
-
+    // the function sends a message to all users in a certain channel
     public async Task SendMessageToChannel(Msg msg, ClientInfo1 clientInfo, bool includeSender)
     {
         try
@@ -272,7 +275,7 @@ public class UdpServer
         }
     }
 
-
+    // the function describes how to work with the user at the authentication stage
     private async void HandleAuthClient(UdpClientInfo clientInfo, byte[] buffer)
     {
         try
@@ -341,6 +344,7 @@ public class UdpServer
     }
     
     
+    // the function sends the confirmation message to the user
     private async void SendConfirm(byte[] message, UdpClientInfo clientInfo)
     {
         Console.WriteLine($"SENT {clientInfo.ClientEndPoint} | CONFIRM");
@@ -350,6 +354,7 @@ public class UdpServer
     }
     
     
+    // the function sends the specified message to the user
      async void SendMessageAsync(byte[] message, UdpClientInfo clientInfo)
      {
          

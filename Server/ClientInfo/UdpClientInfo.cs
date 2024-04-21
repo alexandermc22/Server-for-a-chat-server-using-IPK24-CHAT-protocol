@@ -26,12 +26,11 @@ public class UdpClientInfo  : ClientInfo1
     {
         Client = client;
         ClientEndPoint = clientEndPoint;
-
-        // Инициализация других свойств по умолчанию или в нужном состоянии
+        
         DisplayName = null;
         Username = null;
         Channel = null;
-        State = ClientState.Auth; // Например, устанавливаем начальное состояние подключения
+        State = ClientState.Auth; 
         LastMsgId=0;
         ConfirmQueue = new Queue<Confirm>();
         MessageIdCounter = 0;

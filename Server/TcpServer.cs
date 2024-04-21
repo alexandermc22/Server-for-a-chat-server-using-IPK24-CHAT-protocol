@@ -23,7 +23,8 @@ public class TcpServer
         isRunning = false;
         clients = new List<TcpClientInfo>();
     }
-
+    
+    // the function waits for incoming connections and processes them and clears the memory after itself.
     public async Task Start(UdpServer udpServer,CancellationToken ct)
     {
         try
@@ -58,7 +59,7 @@ public class TcpServer
         }
     }
     
-
+    // The main function that receives a message from the stream, splits it into an array of words and calls a task to process the message. 
     private async void HandleClient(TcpClient client)
     {
         
@@ -93,20 +94,20 @@ public class TcpServer
                     int remainingLength = 0;
                     for (int i = ind + 2; i < buffer.Length; i++)
                     {
-                        if (buffer[i] != 0) // Если байт не нулевой, увеличиваем длину
+                        if (buffer[i] != 0) 
                         {
-                            remainingLength++;
+                            remainingLength++; // If byte is not null, increase length
                         }
                         else
                         {
-                            break; // Если встретили нулевой байт, прекращаем подсчет
+                            break; // If a null byte is encountered, stop counting
                         }
                     }
 
                     Array.Copy(buffer, ind + 2, buffer, 0,
-                        remainingLength); // Копируем данные после \r\n в начало массива
+                        remainingLength); // Copy the data after \r\n to the beginning of the array
                     Array.Clear(buffer, remainingLength, buffer.Length - remainingLength);
-                    // Устанавливаем новое значение для offset
+                    // Set a new value for offset
                     offset = remainingLength;
                 }
                 else
@@ -123,7 +124,7 @@ public class TcpServer
                     offset += bytesRead;
                     if (bytesRead <= 0)
                     {
-                        break; // Клиент закрыл соединение или отправил EOF
+                        break; // Client closed the connection or sent EOF
                     }
                     continue;
                 }
@@ -189,7 +190,8 @@ public class TcpServer
             clients.Remove(clientInfo);
         }
     }
-
+    
+    // the function describes the work with the user at the stage when the user is authenticated and connected to the channel
     private async Task<int> HandleOpenClient(NetworkStream stream, TcpClientInfo clientInfo, string[] words)
     {
         try
@@ -251,7 +253,8 @@ public class TcpServer
 
         return 0;
     }
-
+    
+    // the function describes how to work with the user at the authentication stage
     private async Task<int> HandleAuthClient(NetworkStream stream, TcpClientInfo clientInfo, string[] words)
     {
         try
@@ -307,7 +310,8 @@ public class TcpServer
 
         return 0;
     }
-
+    
+    // the function sends a message to all users in a certain channel
     public async Task SendMessageToChannel(Msg msg, ClientInfo1 clientInfo, bool includeSender)
     {
         try
@@ -328,17 +332,17 @@ public class TcpServer
         }
     }
 
-
+    // the function sends the specified message to the user
     private async Task SendMessageToUser(string message, NetworkStream stream, TcpClientInfo clientInfo)
     {
         try
         {
             string[] words = message.Split(' ');
             Console.WriteLine($"SENT {clientInfo.ClientIpAddress}:{clientInfo.ClientPort} | {words[0]}");
-            // Конвертируем сообщение в байтовый массив
+            // Convert the message to a byte array
             byte[] buffer = Encoding.UTF8.GetBytes(message);
 
-            // Отправляем данные по сетевому потоку
+            // Send data on the network stream
             await stream.WriteAsync(buffer, 0, buffer.Length);
         }
         catch (Exception ex)
