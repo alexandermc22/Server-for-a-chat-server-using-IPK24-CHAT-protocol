@@ -183,7 +183,7 @@ public class TcpServer
                 Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has left {clientInfo.Channel}");
                 SendMessageToChannel(msg, clientInfo, false);
                 _udpServer.SendMessageToChannel(msg, clientInfo, false);
-                Console.Error.WriteLine($"{clientInfo.DisplayName} has left {clientInfo.Channel}");
+               // Console.Error.WriteLine($"{clientInfo.DisplayName} has left {clientInfo.Channel}");
             }
 
             client.Close();
