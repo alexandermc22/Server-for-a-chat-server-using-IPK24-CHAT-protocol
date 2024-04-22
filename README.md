@@ -2,7 +2,12 @@
 # Author: Alexandr Tihanschi xtihan00
 
 ### Structure
-- 
+- Project entry
+- Project functionality description
+- Description of controversial/interesting points in the code
+- Extensions
+- Testing
+- Bibliography
 
 ### Project entry
 The project implements a server for client server application using such protocols as Udp, Tcp. The project was written in c# language where TcpClient, UdpClient were used for the basics with socket handling.
@@ -11,14 +16,14 @@ To operate the server on udp and tcp are used 2 classes TcpServer.cs and UdpServ
 ### Project functionality description
 
 The program starts with parsing arguments using the Options.cs class and then starts 2 processes, one for Udp and one for Tcp, and also uses a separate process waiting for the cancel token in case of program termination
-Both classes are implemented in a similar way and when dealing with messages use classes from the previous project that have been improved in performance and reliability. In each class there is a process for accepting new incoming users after which an instance of ClientInfo is created and a method is called HandleClient() which receives a message from the user calls a certain method depending on the state of the user and also manages memory release after disconnecting the client depending on the state HandleAuthClient(), HandleOpenClient() methods are called which convert the incoming client message and act depending on it. To send a message to the user there is SendMessageAsync() method and SendMessageToChannel() method to send a message to the channel
+Both classes are implemented in a similar way and when dealing with messages use classes from the previous project view [Project1] that have been improved in performance and reliability. In each class there is a process for accepting new incoming users after which an instance of ClientInfo is created and a method is called HandleClient() which receives a message from the user calls a certain method depending on the state of the user and also manages memory release after disconnecting the client depending on the state HandleAuthClient(), HandleOpenClient() methods are called which convert the incoming client message and act depending on it. To send a message to the user there is SendMessageAsync() method and SendMessageToChannel() method to send a message to the channel
 UML diagram:
 ![Uml diagram](UML.png)
 
 ### Description of controversial/interesting points in the code
 
 - If when working with a client we could easily terminate the program in case of an error, in the case of a server, if an exception is thrown when working with a client, the program will not terminate but will try to disconnect the user and free resources
-- When releasing resources to terminate all processes with the user were fully utilized cancel tokens 
+- When releasing resources to terminate all processes with the user were fully utilized cancel tokens [@Manual]
 - if an error occurs that will cause one of the processes for udp or tcp to stop, the program will try to correctly terminate the connection with users who are connected via another protocol before terminating its work.
 
 ### Extensions
@@ -113,14 +118,14 @@ Server wrong data from user test:
 Success: Success: You're logged in
 
 /rename ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-f
+msg
 ERR FROM Server: unknown data
 ERR: No confirm
 
 Process finished with exit code 0.
 
 ```
-- input/output:
+- Server output:
 ```
 RECV 147.229.208.84:57877 | AUTH
 SENT 147.229.208.84:57877 | CONFIRM
@@ -186,3 +191,9 @@ RECV 100.64.103.212:57506 | CONFIRM
 RECV 100.64.103.212:57506 | BYE
 SENT 100.64.103.212:57506 | CONFIRM
 ```
+
+### Bibliography
+
+[Project1] Tihanschi A. *Client for a chat server using IPK24-CHAT protocol* [online]. February 2024. [cited 2024-02-20]. Available at: https://git.fit.vutbr.cz/xtihan00/IPK_1
+
+[@Manual]  Microsoft Corporation  *CancellationToken Struct*  [online]. 8 2021. [cited 2024-02-22]. Available at: https://learn.microsoft.com/en-us/dotnet/api/system.threading.cancellationtoken?view=net-8.0
