@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Server.ClientInfo;
 using Server.Messages;
@@ -190,6 +191,8 @@ public class UdpServer
                     SendMessageToChannel(msgLeft,clientInfo,false);
                     _tcpServer.SendMessageToChannel(msgLeft, clientInfo, false);
                     clientInfo.DisplayName = join.DisplayName;
+                    if (join.DisplayName.Length > 20)
+                        throw new Exception();
                     clientInfo.Channel = join.ChannelId;
                     
                     Reply replyOk = new Reply("You're join to channel", true,BitConverter.ToUInt16(buffer, 1));
@@ -203,6 +206,8 @@ public class UdpServer
                 case (byte)MessageType.MSG:
                     Msg msg = new Msg(buffer);
                     clientInfo.DisplayName = msg.DisplayName;
+                    if (msg.DisplayName.Length > 20)
+                        throw new Exception();
                     SendMessageToChannel(msg,clientInfo,false);
                     _tcpServer.SendMessageToChannel(msg, clientInfo, false);
                     break;
@@ -308,6 +313,8 @@ public class UdpServer
                     SendMessageAsync(replyOk.ToBytes(clientInfo.MessageIdCounter),clientInfo); 
                     clientInfo.Username = auth.Username;
                     clientInfo.DisplayName = auth.DisplayName;
+                    if (auth.DisplayName.Length > 20)
+                        throw new Exception();
                     clientInfo.State = ClientState.Open;
                     clientInfo.Channel = "default";
                     

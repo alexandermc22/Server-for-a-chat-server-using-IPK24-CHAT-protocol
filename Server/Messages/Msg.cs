@@ -53,9 +53,12 @@ public class Msg : IMessage
         string pattern = @"^[\x20-\x7E\s]*$";
         if (!Regex.IsMatch(words[4], pattern))
             throw ex;
-
+        
+        
         DisplayName = words[2];
         MessageContents = words[4];
+        if (DisplayName.Length > 20)
+            throw ex;
     }
     
     public byte[] ToBytes(ushort id)
@@ -117,6 +120,8 @@ public class Msg : IMessage
             }
             string patternDname = @"^[\x20-\x7E]*$";
             if (!Regex.IsMatch(DisplayName, patternDname))
+                throw ex;
+            if (DisplayName.Length > 20)
                 throw ex;
             string pattern = @"^[\x20-\x7E\s]*$";
             if (!Regex.IsMatch(MessageContents, pattern))

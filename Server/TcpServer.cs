@@ -206,7 +206,8 @@ public class TcpServer
 
                     clientInfo.DisplayName = join.DisplayName;
                     clientInfo.Channel = join.ChannelId;
-
+                    if (join.DisplayName.Length > 20)
+                        throw new Exception();
                     Reply replyOk = new Reply("You're join to channel", true);
                     await SendMessageToUser(replyOk.ToTcpString(), stream, clientInfo);
 
@@ -218,6 +219,8 @@ public class TcpServer
                 case "MSG":
                     Msg msg = new Msg(words);
                     clientInfo.DisplayName = msg.DisplayName;
+                    if (msg.DisplayName.Length > 20)
+                        throw new Exception();
                     SendMessageToChannel(msg, clientInfo, false);
                     _udpServer.SendMessageToChannel(msg, clientInfo, false);
                     break;
@@ -287,6 +290,8 @@ public class TcpServer
                 await SendMessageToUser(replyOk.ToTcpString(), stream, clientInfo);
                 clientInfo.Username = auth.Username;
                 clientInfo.DisplayName = auth.DisplayName;
+                if (auth.DisplayName.Length > 20)
+                    throw new Exception();
                 clientInfo.State = ClientState.Open;
                 clientInfo.Channel = "default";
                 Msg msg = new Msg("Server", $"{clientInfo.DisplayName} has joined {clientInfo.Channel}");
